@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Well Failures</title>
+	<style>
+
+		/*body {
+		  font: 10px sans-serif;
+		}*/
+
+		rect.cell {
+			stroke: gray;
+			stroke-width: 1px;
+			stroke-opacity: 0.5;
+			pointer-events: all;
+		}
+
+		rect.cell:hover {
+			stroke: black;
+			stroke-opacity: 1.0;
+			stroke-width: 3px;
+		}
+
+		.axis path {
+			display: none;
+		}
+
+		.axis {
+			font: 10px sans-serif;
+		}
+
+		/*.tooltip {
+		  position: absolute;	
+		  text-align: center;	
+		  width: 60px;	
+		  height: 28px;		
+		  padding: 2px;	
+		  font: 12px sans-serif;	
+		  background: lightsteelblue;	
+		  border: 0px;					
+		  border-radius: 8px;
+		  pointer-events: none;	This line needs to be removed
+		}*/
+
+	</style>
+</head>
+<body>
+
+<h1>Failure Frequency</h1>
+<div id="failure_freq">
+</div>
+<div id="legend">
+</div>
+
+<script type="text/javascript" src="../libraries/d3.min.js"></script>
+
+<script type="text/javascript">
+	
+	var margin = {top: 20, right: 20, bottom: 20, left: 20},
+	    width = 960 - margin.left - margin.right,
+	    height = 500 - margin.top - margin.bottom,
+	    rows = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"],
+	    nrows = rows.length,
+	    cols = [],
+	    // define a color scale on which to map failure frequencies
+	    color_scale = d3.scale.linear()
+	    	.domain([0 , 100])
+	    	.range(["white", "red"]);
+
+    // create an array of column values
+    for (var i = 1; i < 25; i++) {
+    	if (i < 10) {
+    		val = "0" + i;
+    	}
+    	else {
+    		val = "" + i;
+    	}
+    	cols.push(val);
+    }
+
+    // compute cell dimensions
+    var ncols = cols.length,
+	    cell_width = Math.floor(width / ncols),
+	    cell_height = Math.floor(height / nrows);
+
+	// Define 'div' for tooltips
+	// var div = d3.select("body")
+	// 	.append("div")  // declare the tooltip div 
+	// 	.attr("class", "tooltip")              // apply the 'tooltip' class
+	// 	.style("opacity", 0);                  // set the opacity to nil
+
+	// set up x and y scales and axes
+	// copy the rows array and reverse it so A01 is at the top when our axis is rendered
+	var rows_copy = rows.slice(0);
+	var x = d3.scale.ordinal()
+		.domain(cols)
+    	.rangeRoundBands([0, width]);
+    var y = d3.scale.ordinal()
+    	.domain(rows_copy.reverse()) // reverse order of rows
+    	.rangeRoundBands([height, 0]);
+
+    var xAxis = d3.svg.axis()
+	    .scale(x)
+	    .orient("bottom");
+
+	var yAxis = d3.svg.axis()
+	    .scale(y)
+	    .orient("left");
+
+	var svg = d3.select("#failure_freq").append("svg")
+	    .attr("width", width + margin.left + margin.right)
+	    .attr("height", height + margin.top + margin.bottom)
+	  .append("g")
+	    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	d3.tsv("data/well_failures.tsv", function(error, data) {
+	  data.forEach(function(d) {
+	    d.fail_freq = +d.fail_freq;
+	  });
+
+	  svg.append("g")
+	      .attr("class", "x axis")
+	      .attr("transform", "translate(0," + height + ")")
+	      .call(xAxis);
+
+	  svg.append("g")
+	      .attr("class", "y axis")
+	      .call(yAxis);
+
+	  // draw a rect for each well 
+	  var rect = svg.selectAll("rect")
+	      .data(data)
+	    .enter().append("rect")
+	      .attr("rx", 4)
+	      .attr("ry", 4)
+	      .attr("id", function(d) { return d.det_well; })
+	      .attr("class", "cell")
+	      .attr("width", cell_width)
+	      .attr("height", cell_height)
+	      .attr("x", function(d) {
+	        // pull out the column index
+	        var col = d.det_well.substr(1, 2);
+	        var cidx = cols.indexOf(col);
+	        return cell_width * cidx;
+	      })
+	      .attr("y", function(d){            
+	      	// pull out the row index
+	        var row = d.det_well.substr(0, 1);
+	        var ridx = rows.indexOf(row);
+	        return cell_height * ridx;
+	      })
+	      // start of cells as white
+	      .attr("fill", "white");
+	      // .on("mouseover", function() {
+	      // 	d3.select(this).attr("stroke-width", "5px")
+	      // })
+	      // .on("mouseout", function() {
+	      // 	d3.select(this).attr("stroke-width", "1px")
+	      // });
+	      // Tooltip stuff after this
+		  //   .on("mouseover", function(d) {		
+				// div.transition()
+				// 	.duration(200)	
+				// 	.style("opacity", .9);	
+				// div.html(d.det_well)	 
+				// 	.style("left", (d3.event.pageX) + "px")			 
+				// 	.style("top", (d3.event.pageY - 28) + "px");
+				// })
+		  //   .on("mouseout", function() {
+		  //   	div.style("opacity", 0);
+		    // });
+		
+		// transition cells to their final color
+		rect.transition().duration(1000)
+			.attr("fill", function(d) {
+		      	return color_scale(d.fail_freq);
+		      });
+
+	});
+
+	// add color scale bar
+	d3.select("#legend").append("svg")
+      .selectAll("rect").data([0, 25, 50, 75, 100]).enter()
+    .append("rect")
+      .attr("width", cell_width)
+      .attr("height", cell_height)
+      .attr("x", function(d, i) {
+        return i * cell_width;
+      })
+      .attr("y", height)
+      .attr("fill", function(d) {
+        return color_scale(d);
+      })
+      .append("text")
+      .text(function(d) { return ""+ d; });
+
+
+
+</script>
+
+</body>
+</html>

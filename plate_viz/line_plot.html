@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Plate Viz</title>
+	<style>
+
+		body {
+		  font: 10px sans-serif;
+		}
+
+		.axis path,
+		.axis line {
+		  fill: none;
+		  stroke: #000;
+		  shape-rendering: crispEdges;
+		}
+
+		/*.x.axis path {
+		  display: none;
+		}*/
+
+		.line {
+		  fill: none;
+		  stroke: steelblue;
+		  stroke-width: 1.5px;
+		}
+
+	</style>
+</head>
+<body>
+
+<h1>Span Over Time</h1>
+<div id="range-span">
+</div>
+
+<script type="text/javascript" src="../libraries/d3.min.js"></script>
+
+<script type="text/javascript">
+	
+	var margin = {top: 20, right: 20, bottom: 30, left: 50},
+	    width = 960 - margin.left - margin.right,
+	    height = 500 - margin.top - margin.bottom;
+
+	// will need to update to parse ISO formatted dates stored in mysql
+	var parseDate = d3.time.format("%x").parse;
+
+	var x = d3.time.scale()
+	    .range([0, width]);
+
+	var y = d3.scale.linear()
+	    .range([height, 0]);
+
+	var xAxis = d3.svg.axis()
+	    .scale(x)
+	    .orient("bottom");
+
+	var yAxis = d3.svg.axis()
+	    .scale(y)
+	    .orient("left");
+
+	var line = d3.svg.line()
+	    .x(function(d) { return x(d.scan_time); })
+	    .y(function(d) { return y(d.span_plate); });
+
+	var svg = d3.select("body").append("svg")
+	    .attr("width", width + margin.left + margin.right)
+	    .attr("height", height + margin.top + margin.bottom)
+	  .append("g")
+	    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	d3.tsv("data/plates.tsv", function(error, data) {
+	  data.forEach(function(d) {
+	    d.scan_time = parseDate(d.scan_time);
+	    d.span_plate = +d.span_plate;
+	  });
+
+	  // sort the data by date
+	  data.sort(function(a, b){ return d3.ascending(a.scan_time, b.scan_time); });
+
+	  x.domain(d3.extent(data, function(d) { return d.scan_time; }));
+	  y.domain(d3.extent(data, function(d) { return d.span_plate; }));
+
+	  svg.append("g")
+	      .attr("class", "x axis")
+	      .attr("transform", "translate(0," + height + ")")
+	      .call(xAxis);
+
+	  svg.append("g")
+	      .attr("class", "y axis")
+	      .call(yAxis)
+	      .append("text")
+		      // .attr("transform", "rotate(-90)")
+		      .attr("x", 0)
+		      .attr("dy", ".71em")
+		      .style("text-anchor", "end")
+		      .text("Span");
+
+	  svg.append("path")
+	      .datum(data)
+	      .attr("class", "line")
+	      .attr("d", line);
+	});
+</script>
+
+</body>
+</html>
